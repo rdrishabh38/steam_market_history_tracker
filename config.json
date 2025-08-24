@@ -1,0 +1,13 @@
+{
+  "cookies": {
+    "sessionid": "ENTER_YOUR_SESSIONID_VALUE_HERE",
+    "steamLoginSecure": "ENTER_YOUR_SESSIONID_VALUE_HERE",
+    "browserid": "ENTER_YOUR_BROWSERID_VALUE_HERE",
+    "steamCountry": "ENTER_YOUR_STEAMCOUNTRY_VALUE_HERE",
+    "steamparental": "ENTER_YOUR_STEAM_PARENTAL_VALUE_HERE"
+  },
+  "raw_data_directory": "data/raw_transactions",
+  "max_retries": 5,
+  "initial_backoff_seconds": 5,
+  "output_file_name": "steam_market_history.xlsx"
+}
