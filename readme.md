@@ -58,9 +58,9 @@ The most reliable method is using a browser extension like Cookie-Editor for Chr
 
 Before running the scripts, you must provide your Steam session cookies for authentication.
 
-* Create a new file in the project's root directory named config.json.
+* Navigate to the file in the project's root directory named ```config.json```.
 
-* Paste the following structure into it:
+* Update the fields in the JSON file as per your requirement:
 
     ```bash
     {
@@ -77,8 +77,6 @@ Before running the scripts, you must provide your Steam session cookies for auth
         "initial_backoff_seconds": 5,
         "output_file_name": "steam_market_history.xlsx"
     }
-
-And update the fields with required values.
 
 
 ## How to Run
@@ -134,6 +132,15 @@ This is the most common error and means your session cookies are invalid or have
 3.  If applicable, unlock Family View with your PIN.
 4.  Copy the new cookie values and update your `config.json` file.
 5.  Run the script again.
+
+
+##  Known Issues
+
+* Since history results do not usually include the year of the date, the program must make a best guess for the year. If you have gaps larger than a year in your history results you may experience issues. This issue may or may not be resolved in the future.
+
+* Any refunded transactions will persist if they were not refunded at the time of loading. There is no way to remove them from your results at this point unless you clear your entire listing data and reload all the transactions again.
+
+* Pending transactions are treated as completed transactions. More than 99% of the time these are completed successfully. In the event they don't go through, please delete all the historical JSON files from ```Phase 1``` and re-execute the entire process for accuracy.
 
 ---
 ##  License
