@@ -78,6 +78,8 @@ Before running the scripts, you must provide your Steam session cookies for auth
         "output_file_name": "steam_market_history.xlsx"
     }
 
+## ⚠️ Important Security Warning
+# Your steamLoginSecure cookie is like a temporary password for your account. Never share this cookie with anyone. If someone gets this value, they can gain access to your Steam account. Treat it with the same level of security as your actual password
 
 ## How to Run
 
