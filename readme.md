@@ -5,6 +5,10 @@ A two-phase Python script that downloads your complete Steam Community Market tr
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
+
+# If you are having trouble setting up the project, here's an even simpler [setup guide](https://github.com/rdrishabh38/steam_market_history_tracker/blob/master/SETUP_GUIDE.md) for you
+
+
 ## Overview
 
 This project is designed to overcome the limitations of viewing and analyzing your transaction history on the Steam website. It automates the entire process of fetching and organizing your market data. The process is split into two distinct phases for robustness and flexibility:
