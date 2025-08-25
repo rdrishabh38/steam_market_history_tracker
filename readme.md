@@ -3,7 +3,7 @@
 A two-phase Python script that downloads your complete Steam Community Market transaction history and processes it into a clean, organized Excel file for profit/loss analysis.
 
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
 ## Overview
 
@@ -138,4 +138,4 @@ This is the most common error and means your session cookies are invalid or have
 ---
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the GNU V3 License
