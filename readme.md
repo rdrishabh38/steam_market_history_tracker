@@ -136,6 +136,6 @@ This is the most common error and means your session cookies are invalid or have
 5.  Run the script again.
 
 ---
-## License
+##  License
 
-This project is licensed under the GNU V3 License
+This project is protected under the [GPL-3.0 license](https://choosealicense.com/licenses) License. For more details, refer to the [LICENSE](https://github.com/rdrishabh38/steam_market_history_tracker/blob/master/LICENSE.md) file.
