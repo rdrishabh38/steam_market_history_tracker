@@ -5,15 +5,19 @@ import json
 import os
 import time
 import math
+import threading # Added for testing
 
-# The main logic is now wrapped in this class, which accepts the log_queue
+class StopException(Exception):
+    """Custom exception to signal a graceful stop."""
+    pass
+
 class SteamHistoryDownloader:
     BASE_URL = "https://steamcommunity.com/market/myhistory/render/"
     STATE_FILE = "state.json"
 
-    def __init__(self, log_queue, config_path: str = "config.json"):
-        """Initializes the downloader by loading configuration and setting up the session."""
+    def __init__(self, log_queue, stop_event, config_path: str = "config.json"):
         self.log_queue = log_queue
+        self.stop_event = stop_event
         self.log_queue.put(("Initializing downloader...", "gray"))
 
         with open(config_path, 'r') as f:
@@ -27,16 +31,19 @@ class SteamHistoryDownloader:
         os.makedirs(self.data_dir, exist_ok=True)
         self.log_queue.put((f"Raw JSON files will be saved in: '{self.data_dir}'", "white"))
         
-        self.session = self._create_session()
+        self.session = self._create_session() # This line was causing the error
         self.log_queue.put(("Initialization complete.", "gray"))
 
+    # --- THIS IS THE MISSING METHOD THAT HAS BEEN ADDED BACK ---
     def _create_session(self) -> requests.Session:
+        """Creates a requests session with necessary cookies and headers."""
         session = requests.Session()
         session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
         })
         session.cookies.update(self.cookies)
         return session
+    # --- END OF ADDED METHOD ---
 
     def _get_last_local_total_count(self) -> int:
         files = [os.path.join(self.data_dir, f) for f in os.listdir(self.data_dir) if f.endswith('.json')]
@@ -56,10 +63,12 @@ class SteamHistoryDownloader:
         backoff_factor = self.config.get("initial_backoff_seconds", 5)
         
         for i in range(retries):
+            if self.stop_event.is_set(): raise StopException()
             try:
-                time.sleep(2)
-                response = self.session.get(self.BASE_URL, params=params, timeout=30)
+                self.stop_event.wait(2)
+                if self.stop_event.is_set(): raise StopException()
 
+                response = self.session.get(self.BASE_URL, params=params, timeout=30)
                 if response.status_code == 200:
                     data = response.json()
                     if 'Login' in data.get('results_html', ''):
@@ -71,11 +80,11 @@ class SteamHistoryDownloader:
                 
                 wait_time = backoff_factor * (2 ** i)
                 self.log_queue.put((f"Warning: Received status {response.status_code}. Retrying in {wait_time}s...", "orange"))
-                time.sleep(wait_time)
+                self.stop_event.wait(wait_time)
             except requests.exceptions.RequestException as e:
                 wait_time = backoff_factor * (2 ** i)
                 self.log_queue.put((f"An error occurred: {e}. Retrying in {wait_time}s...", "orange"))
-                time.sleep(wait_time)
+                self.stop_event.wait(wait_time)
         
         raise ConnectionError(f"Failed to fetch data after {retries} retries.")
 
@@ -94,6 +103,7 @@ class SteamHistoryDownloader:
         start = 0
         batch_size = 100
         while start < total_count:
+            if self.stop_event.is_set(): break
             data = self._fetch_batch_with_retries(start=start, count=batch_size)
             if not data: break
 
@@ -131,6 +141,7 @@ class SteamHistoryDownloader:
         self.log_queue.put((f"This will require refreshing {pages_to_sync} page(s) of data.", "white"))
         
         for i in range(pages_to_sync):
+            if self.stop_event.is_set(): break
             start = i * batch_size
             data = self._fetch_batch_with_retries(start=start, count=batch_size)
             if not data:
@@ -150,21 +161,21 @@ class SteamHistoryDownloader:
         else:
             self._run_sync()
 
-# This is the single function your GUI will import and call
-def run_download(log_queue):
+def run_download(log_queue, stop_event):
     try:
-        downloader = SteamHistoryDownloader(log_queue)
+        downloader = SteamHistoryDownloader(log_queue, stop_event)
         downloader.run()
+        return True
+    except StopException:
         return True
     except Exception as e:
         log_queue.put((f"FATAL ERROR in download script: {e}", "red"))
         return False
 
-# This block allows you to test the script directly
 if __name__ == "__main__":
     class DummyQueue:
         def put(self, message):
             print(f"LOG: {message[0]} (Color: {message[1]})")
             
     print("--- Running download_history.py in standalone test mode ---")
-    run_download(DummyQueue())
+    run_download(DummyQueue(), threading.Event())
