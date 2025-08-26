@@ -5,7 +5,10 @@ import json
 import os
 import time
 import math
-import threading # Added for testing
+import threading
+
+# --- MODIFICATION: Make STATE_FILE a global constant ---
+STATE_FILE = "state.json"
 
 class StopException(Exception):
     """Custom exception to signal a graceful stop."""
@@ -13,7 +16,6 @@ class StopException(Exception):
 
 class SteamHistoryDownloader:
     BASE_URL = "https://steamcommunity.com/market/myhistory/render/"
-    STATE_FILE = "state.json"
 
     def __init__(self, log_queue, stop_event, config_path: str = "config.json"):
         self.log_queue = log_queue
@@ -25,25 +27,22 @@ class SteamHistoryDownloader:
             
         self.cookies = self.config.get("cookies")
         if not self.cookies or not self.cookies.get("sessionid"):
-            raise ValueError("Please update the 'cookies' object in 'config.json' with your actual Steam cookies.")
+            raise ValueError("Please update the 'cookies' object in 'config.json'.")
             
         self.data_dir = self.config.get("raw_data_directory", "data/raw_transactions")
         os.makedirs(self.data_dir, exist_ok=True)
         self.log_queue.put((f"Raw JSON files will be saved in: '{self.data_dir}'", "white"))
         
-        self.session = self._create_session() # This line was causing the error
+        self.session = self._create_session()
         self.log_queue.put(("Initialization complete.", "gray"))
 
-    # --- THIS IS THE MISSING METHOD THAT HAS BEEN ADDED BACK ---
     def _create_session(self) -> requests.Session:
-        """Creates a requests session with necessary cookies and headers."""
         session = requests.Session()
         session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
         })
         session.cookies.update(self.cookies)
         return session
-    # --- END OF ADDED METHOD ---
 
     def _get_last_local_total_count(self) -> int:
         files = [os.path.join(self.data_dir, f) for f in os.listdir(self.data_dir) if f.endswith('.json')]
@@ -69,6 +68,7 @@ class SteamHistoryDownloader:
                 if self.stop_event.is_set(): raise StopException()
 
                 response = self.session.get(self.BASE_URL, params=params, timeout=30)
+
                 if response.status_code == 200:
                     data = response.json()
                     if 'Login' in data.get('results_html', ''):
@@ -89,7 +89,7 @@ class SteamHistoryDownloader:
         raise ConnectionError(f"Failed to fetch data after {retries} retries.")
 
     def _run_full_download(self):
-        self.log_queue.put(("--- Performing First-Time Full Download ---", "cyan"))
+        self.log_queue.put(("--- Performing Full Download / Resume ---", "cyan"))
         initial_data = self._fetch_batch_with_retries(start=0, count=1)
         if not initial_data: return
         
@@ -100,27 +100,48 @@ class SteamHistoryDownloader:
             
         self.log_queue.put((f"Found a total of {total_count} transactions to download.", "white"))
         
-        start = 0
+        # --- RE-INTRODUCED LOGIC: Load state to resume an interrupted download ---
+        try:
+            with open(STATE_FILE, 'r') as f:
+                start = json.load(f).get("start", 0)
+        except (IOError, json.JSONDecodeError):
+            start = 0
+            
+        self.log_queue.put((f"Starting/Resuming download from index {start}.", "white"))
         batch_size = 100
+
         while start < total_count:
-            if self.stop_event.is_set(): break
+            if self.stop_event.is_set():
+                self.log_queue.put(("Download paused by user.", "orange"))
+                break # Exit the loop but don't mark as complete
+            
             data = self._fetch_batch_with_retries(start=start, count=batch_size)
             if not data: break
 
             filename = f"transactions_{str(start).zfill(6)}.json"
             filepath = os.path.join(self.data_dir, filename)
             with open(filepath, 'w') as f: json.dump(data, f, indent=2)
-            self.log_queue.put((f"Saved {os.path.basename(filepath)} ({start + len(data.get('results',[]))} / {total_count})", "white"))
+            
+            num_results = len(data.get('results', []))
+            self.log_queue.put((f"Saved {os.path.basename(filepath)} ({start + num_results} / {total_count})", "white"))
+
             start += batch_size
-        self.log_queue.put(("\n--- Full Download Complete ---", "green"))
+            # Save progress after every successful batch
+            with open(STATE_FILE, 'w') as f:
+                json.dump({"start": start, "initial_download_complete": False}, f)
+        
+        # --- MODIFICATION: Only mark as complete if the loop finishes naturally ---
+        if start >= total_count:
+            self.log_queue.put(("\n--- Full Download Complete ---", "green"))
+            with open(STATE_FILE, 'w') as f:
+                json.dump({"start": start, "initial_download_complete": True}, f)
 
     def _run_sync(self):
         self.log_queue.put(("--- Performing Efficient Sync ---", "cyan"))
         local_total_count = self._get_last_local_total_count()
+        # This check is now just for logging, not for decision making
         if local_total_count == 0:
-            self.log_queue.put(("Warning: Could not find local state. Re-running full download.", "orange"))
-            self._run_full_download()
-            return
+             self.log_queue.put(("No local files found to compare against. Will fetch latest.", "orange"))
 
         live_data = self._fetch_batch_with_retries(start=0, count=1)
         if not live_data: return
@@ -155,8 +176,17 @@ class SteamHistoryDownloader:
             
         self.log_queue.put(("\n--- Sync Complete ---", "green"))
 
+    # --- MODIFICATION: The main run logic now checks the state file ---
     def run(self):
-        if not os.listdir(self.data_dir):
+        """Determines whether to run a full download/resume or an efficient sync."""
+        state = {}
+        try:
+            with open(STATE_FILE, 'r') as f:
+                state = json.load(f)
+        except (IOError, json.JSONDecodeError):
+            self.log_queue.put(("No state file found, starting fresh.", "gray"))
+
+        if not state.get("initial_download_complete", False):
             self._run_full_download()
         else:
             self._run_sync()
