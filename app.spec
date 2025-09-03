@@ -11,7 +11,6 @@ block_cipher = None
 a = Analysis(['app.py'],
              pathex=[],
              binaries=[],
-             # ADD YOUR DATA FILES HERE
              datas=[
                  (customtkinter_path, 'customtkinter')
              ],
@@ -33,14 +32,14 @@ exe = EXE(pyz,
           a.zipfiles,
           a.datas,
           [],
-          name='SteamMarketExporter',
+          name='SteamMarketHistoryTracker',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
           upx=True,
           upx_dir=None,
           runtime_tmpdir=None,
-          console=False,  # This is the same as --windowed
+          console=False,
           disable_windowed_traceback=False,
           target_arch=None,
           codesign_identity=None,

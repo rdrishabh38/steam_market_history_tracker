@@ -108,7 +108,7 @@ class SteamHistoryDownloader:
             start = 0
             
         self.log_queue.put((f"Starting/Resuming download from index {start}.", "white"))
-        batch_size = 100
+        batch_size = 500
 
         while start < total_count:
             if self.stop_event.is_set():
@@ -157,7 +157,7 @@ class SteamHistoryDownloader:
             
         self.log_queue.put((f"Found {new_items_count} new transaction(s) to sync.", "white"))
         
-        batch_size = 100
+        batch_size = 500
         pages_to_sync = math.ceil(new_items_count / batch_size)
         self.log_queue.put((f"This will require refreshing {pages_to_sync} page(s) of data.", "white"))
         
